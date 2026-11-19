@@ -1,0 +1,516 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>KMD｜代号：前线</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#080d13;color:#fff;font-family:Arial,"Microsoft YaHei",sans-serif}
+canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+.panel{background:rgba(7,14,22,.78);border:1px solid rgba(120,190,220,.25);backdrop-filter:blur(8px);border-radius:9px;padding:12px}
+#brand{position:absolute;left:22px;top:18px;font-size:19px;font-weight:900;letter-spacing:2px;color:#d9f4ff}
+#brand small{display:block;font-size:10px;color:#7ca5b9;letter-spacing:3px;margin-top:4px}
+#mission{position:absolute;top:20px;left:50%;transform:translateX(-50%);text-align:center;min-width:230px}
+#mission strong{font-size:14px;color:#9ee7ff}
+#mission div{font-size:12px;color:#c5d3dc;margin-top:6px}
+#stats{position:absolute;left:20px;bottom:20px;min-width:210px}
+.big{font-size:25px;font-weight:900}
+.muted{font-size:11px;color:#91a9b7}
+#weapon{position:absolute;right:22px;bottom:20px;text-align:right;min-width:180px}
+#weaponName{font-size:17px;font-weight:bold;color:#d8f5ff}
+#ammo{font-size:30px;font-weight:900;margin-top:5px}
+#score{position:absolute;right:22px;top:20px;text-align:right}
+#crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px}
+#crosshair:before,#crosshair:after{content:"";position:absolute;background:#e9faff;box-shadow:0 0 4px #000}
+#crosshair:before{width:2px;height:20px;left:10px;top:1px}
+#crosshair:after{height:2px;width:20px;top:10px;left:1px}
+#hitmarker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:30px;color:#ffdf8a;opacity:0}
+#message{position:absolute;left:50%;top:65%;transform:translateX(-50%);font-size:14px;color:#d9f5ff;text-shadow:0 2px 5px #000}
+#overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:linear-gradient(130deg,rgba(3,10,18,.97),rgba(9,25,38,.92));}
+#menu{width:min(560px,92vw);padding:30px;border:1px solid #31556a;border-radius:16px;background:rgba(9,19,29,.94);box-shadow:0 20px 80px #000}
+.logo{font-size:13px;letter-spacing:5px;color:#7fc8e7}
+h1{font-size:38px;letter-spacing:4px;margin:10px 0;color:#effaff}
+.subtitle{color:#91aebe;font-size:13px;line-height:1.8}
+button,select{background:#17394d;color:#eafaff;border:1px solid #4b849f;border-radius:7px;padding:12px 17px;font-size:14px;cursor:pointer}
+button:hover{background:#245b76}
+#start{width:100%;margin-top:18px;background:#1c6682;font-weight:bold;font-size:16px}
+.menuRow{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.menuRow label{font-size:12px;color:#a9c3d0;display:flex;align-items:center;gap:8px}
+#help{font-size:12px;line-height:2;color:#a8bdc9;margin-top:18px;border-top:1px solid #29404e;padding-top:12px}
+#endTitle{font-size:30px;margin-bottom:8px}
+#scope{display:none;position:fixed;inset:0;z-index:4;pointer-events:none;background:radial-gradient(circle,transparent 0 24%,rgba(0,0,0,.92) 25% 100%)}
+#scope:before{content:"";position:absolute;left:50%;top:0;height:100%;width:2px;background:#111}
+#scope:after{content:"";position:absolute;top:50%;left:0;width:100%;height:2px;background:#111}
+#scopeCircle{position:absolute;left:50%;top:50%;width:min(70vh,70vw);height:min(70vh,70vw);transform:translate(-50%,-50%);border:3px solid #171717;border-radius:50%;box-shadow:0 0 0 2000px rgba(0,0,0,.9)}
+#toast{position:absolute;top:76px;left:50%;transform:translateX(-50%);color:#ffdf9b;font-size:13px}
+@media(max-width:650px){#mission{top:75px}#brand{font-size:14px}#stats{left:8px;bottom:8px}#weapon{right:8px;bottom:8px}#score{right:8px;top:8px}}
+</style>
+</head>
+<body>
+<div id="overlay">
+ <div id="menu">
+  <div class="logo">KMD GAMING STUDIO</div>
+  <h1 id="menuTitle">代号：前线</h1>
+  <div class="subtitle" id="menuDesc">
+   FRONTLINE PROTOCOL · 战术射击行动<br>
+   进入虚构战场，完成小队清剿与远程狙击任务。<br>
+   选择难度，开始你的前线行动。
+  </div>
+  <div class="menuRow">
+   <label>行动难度
+    <select id="difficulty">
+     <option value="easy">简单</option>
+     <option value="normal" selected>普通</option>
+     <option value="hard">困难</option>
+    </select>
+   </label>
+   <label>初始武器
+    <select id="loadout">
+     <option value="rifle">突击步枪</option>
+     <option value="sniper">狙击步枪</option>
+    </select>
+   </label>
+  </div>
+  <button id="start">开始行动</button>
+  <div id="help">
+   <b>操作指南</b><br>
+   WASD：移动　鼠标：瞄准<br>
+   鼠标左键：射击　右键：瞄准 / 狙击镜<br>
+   R：换弹　1：突击步枪　2：狙击步枪　3：手枪<br>
+   Shift：冲刺　空格：跳跃　G：投掷战术手雷<br>
+   ESC：释放鼠标 / 暂停
+  </div>
+ </div>
+</div>
+
+<div id="scope"><div id="scopeCircle"></div></div>
+<div id="hud">
+ <div id="brand">KMD <small>FRONTLINE PROTOCOL</small></div>
+ <div id="mission" class="panel">
+  <strong id="missionTitle">行动：区域清剿</strong>
+  <div id="missionText">消灭战场上的所有敌方单位</div>
+ </div>
+ <div id="score" class="panel">
+  <div class="muted">战场战绩</div>
+  <div><b id="kills">0</b> 击杀　<b id="deaths">0</b> 死亡</div>
+  <div class="muted" id="roundInfo">ROUND 01</div>
+ </div>
+ <div id="stats" class="panel">
+  <div class="muted">生命值</div>
+  <div class="big"><span id="hp">100</span><span class="muted"> / 100</span></div>
+  <div class="muted">护甲 <b id="armor">50</b>　状态 <b id="state">作战中</b></div>
+ </div>
+ <div id="weapon" class="panel">
+  <div id="weaponName">突击步枪</div>
+  <div id="ammo">30 <span class="muted">/ 120</span></div>
+  <div class="muted" id="weaponTip">自动步枪 · 中距离</div>
+ </div>
+ <div id="crosshair"></div>
+ <div id="hitmarker">×</div>
+ <div id="message"></div>
+ <div id="toast"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const $=id=>document.getElementById(id);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x91a7b2);
+scene.fog=new THREE.Fog(0x91a7b2,35,105);
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,180);
+camera.position.set(0,1.7,13);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xd8edff,0x53616b,2));
+const sun=new THREE.DirectionalLight(0xffe5c4,2.2);
+sun.position.set(-18,30,15);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-45;sun.shadow.camera.right=45;
+sun.shadow.camera.top=45;sun.shadow.camera.bottom=-45;
+scene.add(sun);
+
+const mats={
+ ground:new THREE.MeshStandardMaterial({color:0x59656a,roughness:1}),
+ wall:new THREE.MeshStandardMaterial({color:0x64717a,roughness:.9}),
+ dark:new THREE.MeshStandardMaterial({color:0x263540,roughness:.8}),
+ crate:new THREE.MeshStandardMaterial({color:0x806b4c,roughness:1}),
+ metal:new THREE.MeshStandardMaterial({color:0x46545e,metalness:.65,roughness:.45}),
+ red:new THREE.MeshStandardMaterial({color:0x9b3730}),
+ blue:new THREE.MeshStandardMaterial({color:0x347b9c}),
+};
+const colliders=[];
+function box(x,y,z,w,h,d,mat,solid=true){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+ m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);
+ if(solid)colliders.push({x,z,w,d});
+ return m;
+}
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(110,110),mats.ground);
+floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+
+// 战场地形
+for(let i=-48;i<=48;i+=8){
+ box(i,.01,-48,.13,.02,96,mats.dark,false);
+ box(-48,.01,i,96,.02,.13,mats.dark,false);
+}
+for(let i=0;i<9;i++){
+ const x=(i%3-1)*19+(Math.random()-.5)*4;
+ const z=Math.floor(i/3)*-16-4;
+ box(x,0,z,5,4,5,mats.wall);
+ box(x+3,0,z-5,3,2.1,3,mats.crate);
+}
+box(-13,0,3,9,2.6,2,mats.crate);
+box(13,0,-8,8,2.6,2,mats.crate);
+box(0,0,-22,13,3,2,mats.wall);
+box(-24,0,-16,2,4,18,mats.wall);
+box(24,0,-16,2,4,18,mats.wall);
+box(0,0,22,46,4,2,mats.wall);
+box(-34,0,-34,14,5,2,mats.wall);
+box(34,0,-34,14,5,2,mats.wall);
+
+// 集装箱和战场装饰
+for(let i=0;i<7;i++){
+ let x=(Math.random()-.5)*54,z=-30+Math.random()*52;
+ if(Math.abs(x)<9&&Math.abs(z)<12)continue;
+ const c=box(x,0,z,5,2.7,2.6,i%2?mats.blue:mats.red);
+ c.rotation.y=Math.random()*.2;
+}
+for(let i=0;i<18;i++){
+ const x=(Math.random()-.5)*70,z=(Math.random()-.5)*70;
+ const p=new THREE.Mesh(new THREE.BoxGeometry(.5,.5,.5),mats.dark);
+ p.position.set(x,.25,z);p.rotation.y=Math.random()*3;scene.add(p);
+}
+
+// 玩家与枪械
+camera.position.set(0,1.7,15);
+scene.add(camera);
+const gunGroup=new THREE.Group();camera.add(gunGroup);
+function makeGun(color=0x27343d){
+ const body=new THREE.Mesh(new THREE.BoxGeometry(.18,.17,.85),new THREE.MeshStandardMaterial({color,metalness:.7,roughness:.4}));
+ body.position.set(.34,-.25,-.55);gunGroup.add(body);
+ const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.72,10),mats.metal);
+ barrel.rotation.x=Math.PI/2;barrel.position.set(.34,-.21,-1.15);gunGroup.add(barrel);
+ const grip=new THREE.Mesh(new THREE.BoxGeometry(.12,.27,.16),mats.dark);
+ grip.position.set(.34,-.42,-.43);grip.rotation.x=-.2;gunGroup.add(grip);
+ const sight=new THREE.Mesh(new THREE.BoxGeometry(.08,.08,.16),mats.metal);
+ sight.position.set(.34,-.14,-.66);gunGroup.add(sight);
+}
+makeGun();
+
+const weapons={
+ rifle:{name:"突击步枪",mag:30,reserve:120,damage:27,rate:125,reload:1450,spread:.012,tip:"自动步枪 · 中距离"},
+ sniper:{name:"狙击步枪",mag:5,reserve:35,damage:100,rate:900,reload:2100,spread:.001,tip:"高威力 · 远距离"},
+ pistol:{name:"战术手枪",mag:12,reserve:60,damage:35,rate:280,reload:1100,spread:.018,tip:"副武器 · 轻便"},
+};
+let current="rifle",ammo={},reserve={};
+for(const k in weapons){ammo[k]=weapons[k].mag;reserve[k]=weapons[k].reserve;}
+let hp=100,armor=50,kills=0,deaths=0,shots=0,hits=0;
+let reloading=false,lastShot=0,scoped=false,gameState="menu";
+let enemies=[],enemyBullets=[],grenades=[];
+let keys={},velocityY=0,onGround=true;
+let yaw=0,pitch=0,clock=new THREE.Clock();
+const raycaster=new THREE.Raycaster();
+const center=new THREE.Vector2(0,0);
+const enemyGroup=new THREE.Group();scene.add(enemyGroup);
+
+function updateHUD(){
+ $("hp").textContent=Math.max(0,Math.ceil(hp));
+ $("armor").textContent=Math.max(0,Math.ceil(armor));
+ $("kills").textContent=kills;$("deaths").textContent=deaths;
+ $("weaponName").textContent=weapons[current].name;
+ $("ammo").innerHTML=(reloading?"换弹中…":ammo[current])+' <span class="muted">/ '+reserve[current]+'</span>';
+ $("weaponTip").textContent=weapons[current].tip;
+ $("state").textContent=hp>60?"作战中":hp>25?"负伤":"危险";
+ $("missionText").textContent=`剩余敌人：${enemies.filter(e=>e.userData.alive).length}`;
+}
+function toast(t){$("toast").textContent=t;setTimeout(()=>{$("toast").textContent=""},1600)}
+function makeEnemy(x,z,index){
+ const g=new THREE.Group();
+ const uniform=new THREE.MeshStandardMaterial({color:index%2?0x7d3936:0x514e58,roughness:.9});
+ const skin=new THREE.MeshStandardMaterial({color:0xb98b70});
+ const torso=new THREE.Mesh(new THREE.BoxGeometry(.75,1,.42),uniform);
+ torso.position.y=1.05;torso.castShadow=true;g.add(torso);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.25,12,10),skin);
+ head.position.y=1.72;head.castShadow=true;g.add(head);
+ const helmet=new THREE.Mesh(new THREE.SphereGeometry(.28,12,8,0,Math.PI*2,0,Math.PI/2),mats.dark);
+ helmet.position.y=1.83;g.add(helmet);
+ const legs=[];
+ for(let s of [-1,1]){
+  const leg=new THREE.Mesh(new THREE.BoxGeometry(.25,.65,.28),mats.dark);
+  leg.position.set(s*.2,.35,0);leg.castShadow=true;g.add(leg);legs.push(leg);
+ }
+ const arm=new THREE.Mesh(new THREE.BoxGeometry(.18,.65,.2),uniform);
+ arm.position.set(.42,1.05,-.05);arm.rotation.z=-.5;g.add(arm);
+ const gun=new THREE.Mesh(new THREE.BoxGeometry(.13,.13,.65),mats.metal);
+ gun.position.set(.48,1.1,-.4);g.add(gun);
+ g.position.set(x,0,z);
+ g.userData={alive:true,hp:100,lastFire:0,legs,head,torso,phase:Math.random()*6,spawnX:x,spawnZ:z};
+ enemyGroup.add(g);enemies.push(g);
+}
+function spawnEnemies(){
+ enemies.forEach(e=>enemyGroup.remove(e));enemies=[];
+ const diff=$("difficulty").value;
+ const count=diff==="easy"?5:diff==="hard"?10:7;
+ for(let i=0;i<count;i++){
+  let x=(i%4-1.5)*13+(Math.random()-.5)*4;
+  let z=-25-Math.floor(i/4)*13;
+  makeEnemy(x,z,i);
+ }
+}
+function startGame(){
+ hp=100;armor=50;kills=0;deaths=0;shots=0;hits=0;
+ for(const k in weapons){ammo[k]=weapons[k].mag;reserve[k]=weapons[k].reserve;}
+ current=$("loadout").value;
+ camera.position.set(0,1.7,15);yaw=0;pitch=0;
+ camera.rotation.set(0,0,0);
+ velocityY=0;scoped=false;reloading=false;
+ $("scope").style.display="none";
+ spawnEnemies();updateHUD();
+ gameState="playing";
+ $("overlay").style.display="none";
+ renderer.domElement.requestPointerLock?.();
+ clock.getDelta();
+}
+$("start").onclick=startGame;
+
+function switchWeapon(k){
+ if(!weapons[k]||reloading)return;
+ current=k;gunGroup.clear();makeGun(k==="sniper"?0x354b5a:k==="pistol"?0x4a4c51:0x27343d);
+ scoped=false;$("scope").style.display="none";
+ updateHUD();toast("切换至："+weapons[k].name);
+}
+function reload(){
+ if(reloading||ammo[current]===weapons[current].mag||reserve[current]<=0)return;
+ reloading=true;toast("正在更换弹匣");
+ updateHUD();
+ setTimeout(()=>{
+  const need=weapons[current].mag-ammo[current];
+  const take=Math.min(need,reserve[current]);
+  ammo[current]+=take;reserve[current]-=take;
+  reloading=false;updateHUD();
+ },weapons[current].reload);
+}
+function hitEnemy(enemy,damage,headshot=false){
+ if(!enemy.userData.alive)return;
+ enemy.userData.hp-=damage;
+ enemy.scale.set(1.08,1.08,1.08);
+ setTimeout(()=>{if(enemy.parent)enemy.scale.set(1,1,1)},65);
+ $("hitmarker").style.opacity=1;
+ setTimeout(()=>$("hitmarker").style.opacity=0,120);
+ hits++;
+ if(enemy.userData.hp<=0){
+  enemy.userData.alive=false;
+  enemyGroup.remove(enemy);kills++;
+  toast(headshot?"爆头击杀！":"目标已清除");
+  updateHUD();
+  if(enemies.every(e=>!e.userData.alive))finishGame(true);
+ }
+}
+function shoot(){
+ if(gameState!=="playing"||reloading)return;
+ const w=weapons[current],now=performance.now();
+ if(now-lastShot<w.rate)return;
+ if(ammo[current]<=0){toast("弹匣已空，按 R 换弹");return;}
+ lastShot=now;ammo[current]--;shots++;
+ gunGroup.position.z=.08;
+ setTimeout(()=>gunGroup.position.z=0,65);
+ const spread=w.spread*(scoped?.2:1);
+ raycaster.setFromCamera(center,camera);
+ raycaster.ray.direction.x+=(Math.random()-.5)*spread;
+ raycaster.ray.direction.y+=(Math.random()-.5)*spread;
+ raycaster.ray.direction.normalize();
+ const targets=[];
+ enemies.filter(e=>e.userData.alive).forEach(e=>{
+  e.traverse(o=>{if(o.isMesh){o.userData.enemy=e;targets.push(o)}});
+ });
+ const hitsList=raycaster.intersectObjects(targets,false);
+ if(hitsList.length&&hitsList[0].distance<85){
+  const obj=hitsList[0].object,enemy=obj.userData.enemy;
+  const headshot=obj===enemy.userData.head;
+  hitEnemy(enemy,headshot?Math.max(w.damage,100):w.damage,headshot);
+ }
+ updateHUD();
+}
+function throwGrenade(){
+ if(gameState!=="playing")return;
+ const g=new THREE.Mesh(new THREE.SphereGeometry(.14,12,10),new THREE.MeshStandardMaterial({color:0x65764a}));
+ g.position.copy(camera.position);
+ const dir=new THREE.Vector3();camera.getWorldDirection(dir);
+ grenades.push({mesh:g,vel:dir.multiplyScalar(17).add(new THREE.Vector3(0,6,0)),life:1.5});
+ scene.add(g);toast("战术手雷已投出");
+}
+function enemyAttack(e,now){
+ if(now-e.userData.lastFire<1450)return;
+ e.userData.lastFire=now;
+ const origin=e.position.clone();origin.y=1.3;
+ const target=camera.position.clone();
+ const dir=target.sub(origin).normalize();
+ const distance=origin.distanceTo(camera.position);
+ if(distance>38)return;
+ const ray=new THREE.Raycaster(origin,dir,0,distance);
+ const blocked=colliders.some(c=>{
+  const p=new THREE.Vector3(c.x,1,c.z);
+  return p.distanceTo(origin.clone().add(dir.clone().multiplyScalar(distance*.5)))<Math.max(c.w,c.d)*.55;
+ });
+ if(!blocked&&Math.random()<( $("difficulty").value==="hard"?.48:.25)){
+  enemyBullets.push({from:origin,to:camera.position.clone(),life:.16});
+  let dmg=$("difficulty").value==="hard"?13:8;
+  const absorbed=Math.min(armor,dmg*.55);armor-=absorbed;hp-=dmg-absorbed;
+  hp=Math.max(0,hp);
+  updateHUD();
+  if(hp<=0)playerDown();
+ }
+}
+function playerDown(){
+ if(gameState!=="playing")return;
+ deaths++;gameState="dead";document.exitPointerLock?.();
+ $("menuTitle").textContent="行动失败";
+ $("menuDesc").innerHTML=`你已被击倒。<br>击杀：${kills}　死亡：${deaths}<br>点击下方按钮重新部署。`;
+ $("start").textContent="重新部署";
+ $("overlay").style.display="flex";
+}
+function finishGame(win){
+ if(gameState!=="playing")return;
+ gameState="finished";document.exitPointerLock?.();
+ const accuracy=shots?Math.round(hits/shots*100):0;
+ $("menuTitle").textContent=win?"任务完成":"行动结束";
+ $("menuDesc").innerHTML=`${win?"敌方区域已清除，前线行动成功。":"行动结束。"}<br>击杀：${kills}　命中率：${accuracy}%<br>本次行动战绩已记录在本页面。`;
+ $("start").textContent="再次行动";
+ $("overlay").style.display="flex";
+}
+
+// 鼠标视角控制
+document.addEventListener("mousemove",e=>{
+ if(document.pointerLockElement!==renderer.domElement||gameState!=="playing")return;
+ yaw-=e.movementX*.0022;
+ pitch-=e.movementY*.0022;
+ pitch=Math.max(-1.48,Math.min(1.48,pitch));
+ camera.rotation.order="YXZ";
+ camera.rotation.y=yaw;camera.rotation.x=pitch;
+});
+document.addEventListener("pointerlockchange",()=>{
+ if(!document.pointerLockElement&&gameState==="playing"){
+  $("message").textContent="点击画面继续战斗 · ESC 暂停";
+ }else $("message").textContent="";
+});
+renderer.domElement.addEventListener("click",()=>{
+ if(gameState==="playing"&&document.pointerLockElement!==renderer.domElement)
+  renderer.domElement.requestPointerLock?.();
+ else shoot();
+});
+document.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("mousedown",e=>{
+ if(e.button===2&&gameState==="playing"){
+  if(current==="sniper"){scoped=!scoped;$("scope").style.display=scoped?"block":"none";$("crosshair").style.display=scoped?"none":"block";}
+  else camera.fov=58,camera.updateProjectionMatrix();
+ }
+});
+document.addEventListener("mouseup",e=>{
+ if(e.button===2&&current!=="sniper"){camera.fov=75;camera.updateProjectionMatrix();}
+});
+document.addEventListener("keydown",e=>{
+ keys[e.code]=true;
+ if(e.repeat)return;
+ if(e.code==="KeyR")reload();
+ if(e.code==="Digit1")switchWeapon("rifle");
+ if(e.code==="Digit2")switchWeapon("sniper");
+ if(e.code==="Digit3")switchWeapon("pistol");
+ if(e.code==="KeyG")throwGrenade();
+ if(e.code==="Space"&&onGround&&gameState==="playing"){velocityY=7;onGround=false;}
+ if(e.code==="Escape"&&gameState==="playing"){
+  if(document.pointerLockElement)document.exitPointerLock();
+ }
+});
+document.addEventListener("keyup",e=>keys[e.code]=false);
+
+function blockedAt(x,z){
+ if(Math.abs(x)>46||Math.abs(z)>46)return true;
+ return colliders.some(c=>Math.abs(x-c.x)<c.w/2+.45&&Math.abs(z-c.z)<c.d/2+.45);
+}
+function updatePlayer(dt){
+ const speed=(keys.ShiftLeft?9:5.5)*dt;
+ const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+ const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+ let move=new THREE.Vector3();
+ if(keys.KeyW||keys.ArrowUp)move.add(forward);
+ if(keys.KeyS||keys.ArrowDown)move.sub(forward);
+ if(keys.KeyD||keys.ArrowRight)move.add(right);
+ if(keys.KeyA||keys.ArrowLeft)move.sub(right);
+ if(move.lengthSq()>0){
+  move.normalize().multiplyScalar(speed);
+  const nx=camera.position.x+move.x,nz=camera.position.z+move.z;
+  if(!blockedAt(nx,camera.position.z))camera.position.x=nx;
+  if(!blockedAt(camera.position.x,nz))camera.position.z=nz;
+ }
+ velocityY-=18*dt;
+ camera.position.y+=velocityY*dt;
+ if(camera.position.y<=1.7){camera.position.y=1.7;velocityY=0;onGround=true;}
+}
+function updateEnemies(dt,now){
+ enemies.forEach(e=>{
+  if(!e.userData.alive)return;
+  const dx=camera.position.x-e.position.x,dz=camera.position.z-e.position.z;
+  const dist=Math.hypot(dx,dz);
+  if(dist<35){
+   if(dist>8){
+    const nx=e.position.x+dx/dist*dt*( $("difficulty").value==="hard"?1.7:1.15);
+    const nz=e.position.z+dz/dist*dt*( $("difficulty").value==="hard"?1.7:1.15);
+    if(!blockedAt(nx,e.position.z))e.position.x=nx;
+    if(!blockedAt(e.position.x,nz))e.position.z=nz;
+   }
+   e.rotation.y=Math.atan2(-dx,-dz);
+   enemyAttack(e,now);
+  }else{
+   e.userData.phase+=dt;
+   e.position.x=e.userData.spawnX+Math.sin(e.userData.phase*.6)*1.8;
+   e.position.z=e.userData.spawnZ+Math.cos(e.userData.phase*.5)*1.2;
+  }
+  e.userData.legs.forEach((leg,i)=>leg.rotation.x=Math.sin(now*.006+i*Math.PI)*.35);
+ });
+}
+function updateEffects(dt){
+ grenades=grenades.filter(g=>{
+  g.life-=dt;g.vel.y-=12*dt;
+  g.mesh.position.addScaledVector(g.vel,dt);
+  if(g.mesh.position.y<.15){g.mesh.position.y=.15;g.vel.y=Math.abs(g.vel.y)*.45;g.vel.x*=.7;g.vel.z*=.7;}
+  if(g.life<=0){
+   const pos=g.mesh.position.clone();
+   enemies.filter(e=>e.userData.alive&&e.position.distanceTo(pos)<7).forEach(e=>hitEnemy(e,120));
+   const flash=new THREE.Mesh(new THREE.SphereGeometry(3,12,10),new THREE.MeshBasicMaterial({color:0xffb65c,transparent:true,opacity:.5}));
+   flash.position.copy(pos);scene.add(flash);setTimeout(()=>scene.remove(flash),180);
+   scene.remove(g.mesh);return false;
+  }return true;
+ });
+}
+function drawEnemyBullets(){
+ enemyBullets=enemyBullets.filter(b=>{b.life-=.02;return b.life>0});
+}
+function animate(){
+ requestAnimationFrame(animate);
+ const dt=Math.min(clock.getDelta(),.04),now=performance.now();
+ if(gameState==="playing"){
+  updatePlayer(dt);updateEnemies(dt,now);updateEffects(dt);drawEnemyBullets();
+  const bob=(keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD)?Math.sin(now*.012)*.018:0;
+  gunGroup.position.y=bob;
+  if(camera.position.y<1.7)camera.position.y=1.7;
+ }
+ renderer.render(scene,camera);
+}
+animate();
+addEventListener("resize",()=>{
+ camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+updateHUD();
+</script>
+</body>
+</html>
